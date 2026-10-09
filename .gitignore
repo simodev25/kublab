@@ -2,7 +2,7 @@
 .vagrant/
 
 # Kubeconfigs et copies de sauvegarde : identifiants du cluster
-kubeconfig*
+
 kublab.yaml
 kublab.yaml.bak.*
 .kube/
