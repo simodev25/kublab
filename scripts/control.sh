@@ -13,7 +13,10 @@ for i in {1..30}; do
 done
 
 echo "==> Installation de k3s server sur le controleur..."
-export INSTALL_K3S_EXEC="server --node-ip=${CONTROL_IP} --node-name=${NODE_NAME} --tls-san=${K3S_TLS_SAN} --write-kubeconfig-mode=600"
+PRIVATE_IFACE="$(ip -o -4 addr show | awk -v ip="$CONTROL_IP" 'split($4, a, "/") && a[1] == ip {print $2; exit}')"
+PRIVATE_IFACE="${PRIVATE_IFACE%%@*}"
+[ -n "$PRIVATE_IFACE" ] || { echo "IP privee $CONTROL_IP introuvable" >&2; exit 1; }
+export INSTALL_K3S_EXEC="server --node-ip=${CONTROL_IP} --node-name=${NODE_NAME} --flannel-iface=${PRIVATE_IFACE} --tls-san=${K3S_TLS_SAN} --write-kubeconfig-mode=600"
 curl -sfL https://get.k3s.io | sh -
 
 echo "==> Attente que l'API k3s reponde..."

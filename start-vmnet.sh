@@ -8,6 +8,8 @@
 # ou relancez-le avec : sudo bash start-vmnet.sh &
 set -euxo pipefail
 
+mkdir -p /opt/homebrew/var/run
+
 exec /opt/homebrew/opt/socket_vmnet/bin/socket_vmnet \
   --vmnet-gateway=192.168.105.1 \
   --vmnet-dhcp-end=192.168.105.100 \

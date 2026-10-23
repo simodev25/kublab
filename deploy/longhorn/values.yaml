@@ -1,0 +1,27 @@
+# Lab ARM64 : moteur V1 compatible avec le noyau Ubuntu 5.15.
+persistence:
+  defaultClass: false
+  defaultClassReplicaCount: 3
+  dataEngine: v1
+  reclaimPolicy: Delete
+
+defaultSettings:
+  defaultDataPath: /var/lib/longhorn
+  defaultReplicaCount: '{"v1":"3"}'
+  v1DataEngine: true
+  v2DataEngine: false
+  storageOverProvisioningPercentage: 100
+  storageMinimalAvailablePercentage: 25
+  # Ne pas activer fsfreeze sur ce noyau ancien.
+  freezeFilesystemForSnapshot: '{"v1":"false"}'
+
+csi:
+  kubeletRootDir: /var/lib/kubelet
+
+# L'interface n'a pas d'authentification integree : acces local par port-forward.
+service:
+  ui:
+    type: ClusterIP
+
+ingress:
+  enabled: false

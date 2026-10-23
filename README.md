@@ -4,9 +4,9 @@ Cluster **k3s** de 3 nœuds exécutés dans des VM QEMU gérées par Vagrant (pl
 
 | Machine | Rôle | IP privée | vCPU | RAM |
 |---------|------|-----------|-------|-----|
-| `k3s-control` | Contrôleur (control-plane( | 192.168.105.11 | 2 |  ́2 Go |
-| `k3s-worker1` | Worker |  ́192.168.105.12 |  ́2 |  ́2 Go |
-| `k3s-worker2` | Worker |  ́192.168.105.13 |  ́2 |​ 2 Go |
+| `k3s-control` | Contrôleur | 192.168.105.11 | 4 | 4 Go |
+| `k3s-worker1` | Worker | 192.168.105.12 | 4 | 4 Go |
+| `k3s-worker2` | Worker | 192.168.105.13 | 4 | 4 Go |
 
 Le réseau privé entre nœuds utilise le backend `:socket_vmnet` du plugin (VM↔VM **et** host↔VM, **sans sudo** au moment de lancer `vagrant up` — le daemon tient les privilèges root(.
 
@@ -88,7 +88,7 @@ vagrant ssh k3s-control       # shell sur le contrôleur
 vagrant ssh k3s-worker1      # shell sur worker 1
 vagrant status                  # état des 3 machines
 vagrant halt                    # éteindre (ACPI, puis NOOP period faire halt((
-vagrant reload k3s-control     # redémarrer une machine( + re-provision
+vagrant reload k3s-control --no-provision # redemarrer le controleur sans re-provisionner
 vagrant destroy -f            # tout détruire
 ```
 
@@ -117,7 +117,7 @@ make nodes       # kubectl get nodes
 make pods        # kubectl get pods -A
 make ssh-control # shell sur le contrôleur
 make halt        # éteint les machines
-make reload      # redémarre + re-provisionne
+make reload      # redemarre les 3 VM en sequence, sans re-provisionner
 make destroy     # tout détruire
 make snap-save    # sauvegarde un snapshot disque des 3 VM
 make snap-restore # restaure un snapshot disque
@@ -176,6 +176,114 @@ la nouvelle valeur de `--ip`.
 
 **Attention :** le kubeconfig donne un acces administrateur. Gardez-le prive et
 n'utilisez que des fichiers provenant d'une source de confiance.
+
+## Stockage distribue Longhorn
+
+Configuration du lab : Longhorn **1.13.0**, compatible ARM64 et Kubernetes 1.36,
+moteur **V1**, **3 repliques** par volume. Les 3 VM sont configurees avec
+4 vCPU et 4 Go de RAM chacune. Le moteur V2 reste desactive car il necessite
+notamment un noyau plus recent et des ressources supplementaires.
+
+### Installation depuis le Mac
+
+Le daemon reseau doit etre actif. La seule presence du fichier socket ne suffit
+pas : si le daemon s'arrete, les VM peuvent rester accessibles en SSH via le NAT,
+mais les workers deviennent `NotReady` faute de communication avec le controleur.
+
+```bash
+# Terminal 1 : sudo, laisser ce terminal ouvert
+make vmnet
+```
+
+Apres un arret du daemon, reconnectez les VM en les redemarrant. Cette commande
+applique aussi les nouvelles ressources du Vagrantfile, sans reinstaller k3s :
+
+```bash
+# Terminal 2 : depuis le projet sur le Mac
+make reload
+make kubeconfig
+make nodes
+
+# Attendre que les 3 noeuds soient Ready, puis :
+make longhorn-install
+make longhorn-status
+make longhorn-test
+```
+
+`longhorn-install` prepare les 3 VM avec `open-iscsi`, `nfs-common`, `cryptsetup`
+et `dmsetup`, charge les modules iSCSI/NFS de facon persistante, active `iscsid`,
+puis installe le chart officiel avec Helm et attend la disponibilite des composants.
+Le script refuse de commencer si l'un des 3 noeuds n'est pas `Ready`.
+
+La preparation fixe aussi l'interface Flannel sur le reseau prive des VM
+(fichier `/etc/rancher/k3s/config.yaml.d/20-kublab-network.yaml`). Un redemarrage
+du service k3s est effectue uniquement si cette configuration change. Le NAT QEMU
+attribue la meme IP `10.0.2.15` a chaque VM : il ne peut pas transporter le trafic
+VXLAN entre noeuds. Un noeud `Ready` ne garantit donc pas que les pods communiquent.
+
+Les donnees sont stockees dans `/var/lib/longhorn`, sur le disque systeme ext4
+de chaque VM. Aucun disque n'est formate. Au moins 25 % d'espace libre sont
+conserves et le surprovisionnement est limite a 100 %. Les disques qcow2 sont
+sparse, mais les donnees et snapshots consomment bien de l'espace sur le Mac.
+Surveillez aussi l'espace libre du Mac.
+
+La StorageClass `local-path` reste la classe par defaut pour ne pas changer les
+applications existantes. Pour utiliser Longhorn, precisez dans votre PVC :
+
+```yaml
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+### Interface web sur le Mac ou dans WSL
+
+```bash
+make longhorn-ui
+# Ouvrir http://127.0.0.1:8080 ; Ctrl+C pour arreter
+```
+
+Depuis WSL deja configure pour le cluster :
+
+```bash
+kubectl -n longhorn-system port-forward --address 127.0.0.1 \
+  service/longhorn-frontend 8080:80
+```
+
+Ouvrez http://localhost:8080 dans le navigateur Windows. L'interface n'a pas
+d'authentification integree : elle n'est donc pas exposee en NodePort ou Ingress.
+
+### Test du stockage
+
+`make longhorn-test` cree un PVC de 1 Gi et un Job qui ecrit puis relit un fichier.
+Le test conserve volontairement son PVC dans le namespace `longhorn-test`.
+Pour verifier la persistance apres recreation du Job :
+
+```bash
+kubectl --kubeconfig kubeconfig.yaml -n longhorn-test delete job longhorn-smoke
+make longhorn-test
+```
+
+Nettoyage explicite du test uniquement, supprimant aussi ses donnees :
+
+```bash
+kubectl --kubeconfig kubeconfig.yaml delete namespace longhorn-test
+```
+
+Les 3 VM tournant sur le meme Mac, cette replication ne protege pas d'une panne
+ou perte du Mac. Les snapshots qcow2 ne remplacent pas les sauvegardes Longhorn
+vers un stockage externe. Ne restaurez pas un seul disque de VM independamment
+des autres alors que Longhorn est actif. Cette configuration est destinee au lab,
+pas a la production.
+
+Fichiers : `deploy/longhorn/values.yaml`, `deploy/longhorn/test-volume.yaml`,
+`scripts/longhorn.sh` et `scripts/longhorn-node.sh`.
+
+Documentation officielle : https://longhorn.io/docs/1.13.0/deploy/install/
 
 ## Fichiers
 

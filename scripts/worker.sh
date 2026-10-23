@@ -37,7 +37,10 @@ fi
 echo "==> Installation de k3s agent sur le worker..."
 export K3S_URL="https://${CONTROL_IP}:6443"
 export K3S_TOKEN="${NODE_TOKEN}"
-export INSTALL_K3S_EXEC="agent --node-ip=${AGENT_IP} --node-name=${NODE_NAME}"
+PRIVATE_IFACE="$(ip -o -4 addr show | awk -v ip="$AGENT_IP" 'split($4, a, "/") && a[1] == ip {print $2; exit}')"
+PRIVATE_IFACE="${PRIVATE_IFACE%%@*}"
+[ -n "$PRIVATE_IFACE" ] || { echo "IP privee $AGENT_IP introuvable" >&2; exit 1; }
+export INSTALL_K3S_EXEC="agent --node-ip=${AGENT_IP} --node-name=${NODE_NAME} --flannel-iface=${PRIVATE_IFACE}"
 curl -sfL https://get.k3s.io | sh -
 
 echo "==> Worker configure. Node pret dans quelques dizaines de secondes."

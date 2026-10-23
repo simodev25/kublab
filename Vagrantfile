@@ -67,8 +67,8 @@ Vagrant.configure("2") do |config|
 
     c.vm.provider "qemu" do |qe|
       qe.image_path = BOX_IMG
-      qe.memory = "2G"
-      qe.smp = "2"
+      qe.memory = "4G"
+      qe.smp = "4"
       qe.advanced_network = true
       qe.net_mode = :socket_vmnet
       qe.ssh_auto_correct = true
@@ -89,8 +89,8 @@ Vagrant.configure("2") do |config|
 
       c.vm.provider "qemu" do |qe|
         qe.image_path = BOX_IMG
-        qe.memory = "2G"
-        qe.smp = "2"
+        qe.memory = "4G"
+        qe.smp = "4"
         qe.advanced_network = true
         qe.net_mode = :socket_vmnet
         qe.ssh_auto_correct = true

@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longhorn-test
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: longhorn-smoke
+  namespace: longhorn-test
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-smoke
+  namespace: longhorn-test
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: volume-check
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -ec
+            - |
+              if [ -f /data/check.txt ]; then
+                grep -qx 'kublab-longhorn-ok' /data/check.txt
+                echo 'Donnees precedentes retrouvees.'
+              fi
+              printf 'kublab-longhorn-ok\n' > /data/check.txt
+              sync
+              grep -qx 'kublab-longhorn-ok' /data/check.txt
+              echo 'LONGHORN_OK : ecriture et lecture du volume reussies.'
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: longhorn-smoke

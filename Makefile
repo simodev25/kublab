@@ -15,6 +15,7 @@ PROVIDER := qemu
 UP_FLAGS  := --no-parallel
 
 .PHONY: help up status ssh-control ssh-worker1 ssh-worker2 kubeconfig nodes pods halt reload provision destroy vmnet box snap-save snap-restore snap-list
+.PHONY: longhorn-prepare longhorn-install longhorn-status longhorn-ui longhorn-test
 
 help: ## Affiche cette aide
 	@echo "Cibles disponibles :"
@@ -48,8 +49,10 @@ pods: kubeconfig ## Affiche les pods de tous les namespaces
 halt: ## Éteint les 3 machines
 	vagrant halt
 
-reload: ## Redémarre + re-provisionne
-	vagrant reload --provider $(PROVIDER( --no-parallel
+reload: ## Redemarre les 3 VM en sequence, sans re-provisionner
+	vagrant reload k3s-control --no-provision
+	vagrant reload k3s-worker1 --no-provision
+	vagrant reload k3s-worker2 --no-provision
 
 provision: ## Re-exécute les provisioners sans redémarrer
 	vagrant provision
@@ -71,3 +74,18 @@ snap-restore: ## Restaure un snapshot disque ( puis: make up(
 
 snap-list: ## Liste les snapshots de toutes les VM
 	bash scripts/snap.sh list
+
+longhorn-prepare: ## Installe les prerequis iSCSI et NFS dans les 3 VM
+	bash scripts/longhorn.sh prepare
+
+longhorn-install: longhorn-prepare ## Installe Longhorn via Helm, sans changer la StorageClass par defaut
+	bash scripts/longhorn.sh install
+
+longhorn-status: ## Etat des composants et noeuds Longhorn
+	bash scripts/longhorn.sh status
+
+longhorn-ui: ## Interface Longhorn sur http://127.0.0.1:8080
+	bash scripts/longhorn.sh ui
+
+longhorn-test: ## Teste un PVC Longhorn de 1 Gi avec ecriture et lecture
+	bash scripts/longhorn.sh test
