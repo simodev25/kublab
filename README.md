@@ -223,19 +223,26 @@ VXLAN entre noeuds. Un noeud `Ready` ne garantit donc pas que les pods communiqu
 
 ### Si l'IP du Mac change
 
-L'IP du certificat de l'API correspond a l'IP Wi-Fi du Mac au moment de
-l'installation. Si le routeur attribue une nouvelle IP, kubectl depuis WSL
-echoue avec une erreur `x509`. Relancez l'installeur k3s sur le contrôleur
-avec la nouvelle IP (les anciennes peuvent rester) :
+L'IP du certificat de l'API inclut **toutes les IPs du sous-reseau LAN du Mac**
+(`TLS_SAN_SUBNET.1` a `.254`, par defaut `192.168.1.x`) : le certificat reste
+valide meme si le routeur attribue une nouvelle IP au Mac. Dans ce cas, seule
+la ligne `server:` du kubeconfig client est a mettre a jour, par exemple dans
+WSL : `sed -i 's/192.168.1.ANCIEN/192.168.1.NOUVEAU/' ~/.kube/kublab.yaml`.
+
+Si le cluster a ete installe avec une version ancienne des scripts (une seule
+IP dans le certificat), regenerez-le sans reinstaller les donnees :
 
 ```bash
-vagrant ssh k3s-control -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server --node-ip=192.168.105.11 --node-name=k3s-control --flannel-iface=eth0 --tls-san=NOUVELLE_IP --tls-san=ANCIENNE_IP --write-kubeconfig-mode=600' sh -"
+make tls-san-refresh
 ```
 
-Puis mettez a jour le client WSL avec la nouvelle IP :
+Changer de sous-reseau : `TLS_SAN_SUBNET=192.168.0 make tls-san-refresh`.
+
+Verifier les IPs couvertes par le certificat :
 
 ```bash
-bash scripts/client-wsl.sh --ip NOUVELLE_IP --kubeconfig "$HOME/.kube/kublab.yaml"
+echo | openssl s_client -connect 127.0.0.1:6443 2>/dev/null | \
+  openssl x509 -noout -ext subjectAltName
 ```
 
 En cas de doute sur l'IP du certificat actuel :

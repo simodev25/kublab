@@ -63,6 +63,9 @@ destroy: ## Détruit tout
 vmnet: ## Lance le daemon socket_vmnet (sudo interactif, une fois(
 	sudo bash start-vmnet.sh
 
+tls-san-refresh: ## Regénère le certificat API avec toutes les IPs 192.168.1.x
+	bash scripts/tls-san-refresh.sh
+
 box: ## Ajoute la box si absente
 	vagrant box add perk/ubuntu-2204-arm64 --provider libvirt
 
