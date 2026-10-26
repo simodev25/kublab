@@ -4,7 +4,10 @@ set -euxo pipefail
 
 CONTROL_IP="${CONTROL_IP:-192.168.105.11}"
 NODE_NAME="${NODE_NAME:-k3s-control}"
-K3S_TLS_SAN="${K3S_TLS_SAN:-192.168.1.98}"
+# IP du Mac sur le LAN Wi-Fi (accés API depuis WSL). Si l'IP du Mac change,
+# ajoutez la nouvelle IP dans /var/lib/rancher/k3s/server/tls-san du contrôleur
+# (une IP par ligne) puis : sudo systemctl restart k3s
+K3S_TLS_SAN="${K3S_TLS_SAN:-192.168.1.97}"
 
 echo "==> Attente que l'IP privee ${CONTROL_IP} soit active..."
 for i in {1..30}; do

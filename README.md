@@ -221,6 +221,30 @@ du service k3s est effectue uniquement si cette configuration change. Le NAT QEM
 attribue la meme IP `10.0.2.15` a chaque VM : il ne peut pas transporter le trafic
 VXLAN entre noeuds. Un noeud `Ready` ne garantit donc pas que les pods communiquent.
 
+### Si l'IP du Mac change
+
+L'IP du certificat de l'API correspond a l'IP Wi-Fi du Mac au moment de
+l'installation. Si le routeur attribue une nouvelle IP, kubectl depuis WSL
+echoue avec une erreur `x509`. Relancez l'installeur k3s sur le contrôleur
+avec la nouvelle IP (les anciennes peuvent rester) :
+
+```bash
+vagrant ssh k3s-control -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server --node-ip=192.168.105.11 --node-name=k3s-control --flannel-iface=eth0 --tls-san=NOUVELLE_IP --tls-san=ANCIENNE_IP --write-kubeconfig-mode=600' sh -"
+```
+
+Puis mettez a jour le client WSL avec la nouvelle IP :
+
+```bash
+bash scripts/client-wsl.sh --ip NOUVELLE_IP --kubeconfig "$HOME/.kube/kublab.yaml"
+```
+
+En cas de doute sur l'IP du certificat actuel :
+
+```bash
+echo | openssl s_client -connect 127.0.0.1:6443 2>/dev/null | \
+  openssl x509 -noout -ext subjectAltName
+```
+
 Les donnees sont stockees dans `/var/lib/longhorn`, sur le disque systeme ext4
 de chaque VM. Aucun disque n'est formate. Au moins 25 % d'espace libre sont
 conserves et le surprovisionnement est limite a 100 %. Les disques qcow2 sont
