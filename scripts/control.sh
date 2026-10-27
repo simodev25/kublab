@@ -8,11 +8,14 @@ NODE_NAME="${NODE_NAME:-k3s-control}"
 # (TLS_SAN_SUBNET.1 a .254), pour survivre aux changements d'IP DHCP.
 # Ajustez TLS_SAN_SUBNET si votre LAN utilise une autre plage.
 TLS_SAN_SUBNET="${TLS_SAN_SUBNET:-192.168.1}"
+# Nom mDNS du Mac : se met a jour tout seul si l'IP du Mac change.
+TLS_SAN_DNS="${TLS_SAN_DNS:-$(scutil --get LocalHostName).local}"
 
 SAN_ARGS=""
 for i in $(seq 1 254); do
   SAN_ARGS="${SAN_ARGS} --tls-san=${TLS_SAN_SUBNET}.${i}"
 done
+SAN_ARGS="${SAN_ARGS} --tls-san=${TLS_SAN_DNS}"
 
 echo "==> Attente que l'IP privee ${CONTROL_IP} soit active..."
 for i in {1..30}; do

@@ -9,14 +9,17 @@
 set -euo pipefail
 
 SUBNET="${TLS_SAN_SUBNET:-192.168.1}"
+# Nom mDNS du Mac : se met a jour tout seul si l'IP du Mac change.
+DNS_SAN="${TLS_SAN_DNS:-$(scutil --get LocalHostName).local}"
 CONTROL_IP="192.168.105.11"
 
 SAN_ARGS=""
 for i in $(seq 1 254); do
   SAN_ARGS="${SAN_ARGS} --tls-san=${SUBNET}.${i}"
 done
+SAN_ARGS="${SAN_ARGS} --tls-san=${DNS_SAN}"
 
-echo "==> Regénération du certificat API avec les SANs ${SUBNET}.1-${SUBNET}.254"
+echo "==> Regénération du certificat API avec les SANs ${SUBNET}.1-${SUBNET}.254 et ${DNS_SAN}"
 echo "==> k3s va redémarrer (environ 30-60 s)..."
 vagrant ssh k3s-control -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server --node-ip=${CONTROL_IP} --node-name=k3s-control --flannel-iface=eth0${SAN_ARGS} --write-kubeconfig-mode=600' sh -"
 

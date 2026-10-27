@@ -238,6 +238,15 @@ make tls-san-refresh
 
 Changer de sous-reseau : `TLS_SAN_SUBNET=192.168.0 make tls-san-refresh`.
 
+Le certificat inclut aussi le **nom mDNS du Mac** (`MacBook-Pro.local`,
+detecte automatiquement). Ce nom reste valide meme si l'IP du Mac change :
+utilisez-le comme `server:` dans WSL pour ne plus jamais rien modifier :
+
+```bash
+sed -i 's#server: .*#server: https://MacBook-Pro.local:6443#' ~/.kube/kublab.yaml
+kubectl get nodes
+```
+
 Verifier les IPs couvertes par le certificat :
 
 ```bash
