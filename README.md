@@ -240,12 +240,21 @@ Changer de sous-reseau : `TLS_SAN_SUBNET=192.168.0 make tls-san-refresh`.
 
 Le certificat inclut aussi le **nom mDNS du Mac** (`MacBook-Pro.local`,
 detecte automatiquement). Ce nom reste valide meme si l'IP du Mac change :
-utilisez-le comme `server:` dans WSL pour ne plus jamais rien modifier :
+utilisez-le comme `server:` dans WSL pour ne plus jamais toucher au
+kubeconfig. Attention : WSL ne resolve pas `.local` nativement, il faut
+mettre a jour son `/etc/hosts` avec :
 
 ```bash
 sed -i 's#server: .*#server: https://MacBook-Pro.local:6443#' ~/.kube/kublab.yaml
-kubectl get nodes
+bash scripts/wsl-fix-hosts.sh
 ```
+
+Le script interroge Windows (qui, lui, comprend le mDNS), ecrit l'IP du Mac
+dans `/etc/hosts` de WSL et verifie `kubectl get nodes`. **A relancer apres
+un changement d'IP du Mac** (le kubeconfig, lui, reste correct). Alternative
+zero-maintenance sur Windows 11 : `networkingMode=mirrored` dans
+`%USERPROFILE%\.wslconfig` puis `wsl --shutdown` — WSL resout alors `.local`
+nativement.
 
 Verifier les IPs couvertes par le certificat :
 
